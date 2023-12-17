@@ -20,24 +20,24 @@ blue = (0, 191, 255)  # Lazurowy
 paddle_width, paddle_height = 15, 80
 paddle1_x, paddle1_y = 0, (height - paddle_height) // 2
 paddle2_x, paddle2_y = width - paddle_width, (height - paddle_height) // 2
-paddle_speed = 5
+paddle_speed = 8
 
 # Piłka
-ball_size = 15
-ball_speed = 4
+ball_size = 20
+ball_speed = 40
 ball_x, ball_y = width // 2, height // 2
 ball_angle = random.uniform(-45, 45)  # Kąt początkowy dla piłki
 
 # Stołowa geometria
 table_color = blue
 table_rect = pygame.Rect(0, 0, width, height)
-table_border_width = 10
+table_border_width = 40
 table_border_rect = pygame.Rect(table_border_width, table_border_width,
                                 width - 2 * table_border_width, height - 2 * table_border_width)
 
 net_color = white
 net_width = 2
-net_rects = [pygame.Rect(width // 2 - net_width // 2, i * height // 15, net_width, height // 15) for i in range(15)]
+net_rects = [pygame.Rect(width // 2 - net_width // 2, i * height // 20, net_width, height // 20) for i in range(20)]
 
 # Liczniki punktów
 score_player1 = 0
