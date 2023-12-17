@@ -23,11 +23,11 @@ blue = (0, 191, 255)  # Lazurowy
 paddle_width, paddle_height = 15, 80
 paddle1_x, paddle1_y = 0, (height - paddle_height) // 2
 paddle2_x, paddle2_y = width - paddle_width, (height - paddle_height) // 2
-paddle_speed = 5
+paddle_speed = 10
 
 # Piłka
 ball_size = 15
-ball_speed = 4
+ball_speed = 10
 ball_x, ball_y = width // 2, height // 2
 ball_angle = random.uniform(-45, 45)  # Kąt początkowy dla piłki
 
