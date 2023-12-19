@@ -151,7 +151,8 @@ class Ball(pygame.sprite.Sprite):
         self.image = pygame.Surface((15, 15))
         pygame.draw.circle(self.image, WHITE, (7, 7), 7)
         self.rect = self.image.get_rect(center=(x, y))
-        self.speed = 20
+        self.speed = 30
+        self.acceleration = 0.5
         self.angle = math.radians(45)
 
     def update(self):
