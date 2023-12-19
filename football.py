@@ -191,7 +191,7 @@ class Goal(pygame.sprite.Sprite):
 
 # Utworzenie obiektów boiska, piłkarzy, piłki, linii bramki i bramek
 field = Field()
-player1 = Player1(WIDTH // 2, HEIGHT // 2, color_top=WHITE, color_bottom=RED)
+player1 = Player1(WIDTH // 2 + 50, HEIGHT // 2, color_top=WHITE, color_bottom=RED)
 player2 = Player2(WIDTH // 2 - 50, HEIGHT // 2, color_top=WHITE, color_bottom=BLACK)
 ball = Ball(WIDTH // 2, HEIGHT // 2)
 goal_width = 4
@@ -252,8 +252,8 @@ while True:
     all_sprites.draw(screen)
 
     font = pygame.font.Font(None, 48)
-    label1 = font.render(f"PLAYER_1: {player1.goals_scored}", True, RED)
-    label2 = font.render(f"PLAYER_2: {player2.goals_scored}", True, BLACK)
+    label1 = font.render(f"PLAYER_2: {player1.goals_scored}", True, RED)
+    label2 = font.render(f"PLAYER_1: {player2.goals_scored}", True, BLACK)
 
     screen.blit(label2, (30, 10))
     screen.blit(label1, (WIDTH - label2.get_width() - 30, 10))
