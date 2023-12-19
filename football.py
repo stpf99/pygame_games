@@ -39,19 +39,12 @@ class Field(pygame.sprite.Sprite):
         # Rysowanie pola karnego (lewa strona)
         pygame.draw.rect(self.image, WHITE, pygame.Rect(0, (HEIGHT - 330) // 2, 120, 330), 4)
 
-        # Rysowanie pola wyłączenia (prawa strona)
-        pygame.draw.rect(self.image, WHITE, pygame.Rect(WIDTH - 10, (HEIGHT - 150) // 2, 10, 150), 4)
+        # Rysowanie bramki (prawa strona)
+        pygame.draw.rect(self.image, WHITE, pygame.Rect(WIDTH - 20, (HEIGHT - 150) // 2, 10, 150), 4)
 
-        # Rysowanie pola wyłączenia (lewa strona)
-        pygame.draw.rect(self.image, WHITE, pygame.Rect(0, (HEIGHT - 150) // 2, 10, 150), 4)
-
-        # Rysowanie bramek
-        goal_width = 7
-        goal_height = 70
-        goal1 = Goal(-goal_width, (HEIGHT - goal_height) // 2, goal_width, goal_height)
-        goal2 = Goal(WIDTH, (HEIGHT - goal_height) // 2, goal_width, goal_height)
-        goal_line1 = GoalLine(-goal_width, (HEIGHT - goal_height) // 2, goal_width, goal_height)
-        goal_line2 = GoalLine(WIDTH, (HEIGHT - goal_height) // 2, goal_width, goal_height)
+        # Rysowanie bramki (lewa strona)
+        pygame.draw.rect(self.image, WHITE, pygame.Rect(10, (HEIGHT - 150) // 2, 10, 150), 4)
+   
 
         # Dodanie trybun
         pygame.draw.rect(self.image, WHITE, pygame.Rect(0, 0, WIDTH, 40), 4)
@@ -106,7 +99,7 @@ class Player2(pygame.sprite.Sprite):
         self.rect.x = max(0, min(self.rect.x, WIDTH - 20))  # Ograniczenie szerokości
         self.rect.y = max(0, min(self.rect.y, HEIGHT - 40))  # Ograniczenie wysokości
 
-class Player(pygame.sprite.Sprite):
+class Player1(pygame.sprite.Sprite):
     def __init__(self, x, y, color_top=WHITE, color_bottom=BLACK):
         super().__init__()
         self.image = pygame.Surface((20, 40), pygame.SRCALPHA)
@@ -170,36 +163,46 @@ class Ball(pygame.sprite.Sprite):
         if self.rect.top <= 10 or self.rect.bottom >= HEIGHT - 10:
             self.angle = -self.angle
 
-# Klasa reprezentująca linię bramki
 class GoalLine(pygame.sprite.Sprite):
-    def __init__(self, x, y, width, height):
+    def __init__(self, x, y, width, height, player):
         super().__init__()
         self.image = pygame.Surface((width, height))
         self.image.fill(WHITE)
         self.rect = self.image.get_rect(topleft=(x, y))
+        self.player = player
 
-# Klasa reprezentująca bramkę
+    def check_goal(self, ball):
+        if pygame.sprite.collide_rect(ball, self):
+            print(f"Gol dla Gracza {self.player}!")
+            self.player.goals_scored += 1  # Zwiększenie liczby punktów gracza
+            ball.rect.center = (WIDTH // 2, HEIGHT // 2)  # Przywrócenie piłki do środka po golu
+            ball.speed = 5
+            ball.angle = math.radians(45)
+
+
 class Goal(pygame.sprite.Sprite):
-    def __init__(self, x, y, width, height):
+    def __init__(self, x, y, width, height, player):
         super().__init__()
         self.image = pygame.Surface((width, height))
         self.image.fill(WHITE)
         self.rect = self.image.get_rect(topleft=(x, y))
+        self.player = player
+
 
 # Utworzenie obiektów boiska, piłkarzy, piłki, linii bramki i bramek
 field = Field()
-player = Player(WIDTH // 2, HEIGHT // 2, color_top=WHITE, color_bottom=RED)
+player1 = Player1(WIDTH // 2, HEIGHT // 2, color_top=WHITE, color_bottom=RED)
 player2 = Player2(WIDTH // 2 - 50, HEIGHT // 2, color_top=WHITE, color_bottom=BLACK)
 ball = Ball(WIDTH // 2, HEIGHT // 2)
-goal_width = 7
-goal_height = 70
-goal1 = Goal(-goal_width, (HEIGHT - goal_height) // 2, goal_width, goal_height)
-goal2 = Goal(WIDTH, (HEIGHT - goal_height) // 2, goal_width, goal_height)
-goal_line1 = GoalLine(-goal_width, (HEIGHT - goal_height) // 2, goal_width, goal_height)
-goal_line2 = GoalLine(WIDTH, (HEIGHT - goal_height) // 2, goal_width, goal_height)
-
+goal_width = 4
+goal_height = 150
+# Utworzenie obiektów bramek i linii bramki
+goal1 = Goal(10, (HEIGHT - 150) // 2, 10, 150, player1)
+goal2 = Goal(WIDTH - 20, (HEIGHT - 150) // 2, 10, 150, player2)
+goal_line1 = GoalLine(0, (HEIGHT - 150) // 2, 20, 150, player1)
+goal_line2 = GoalLine(WIDTH - 20, (HEIGHT - 150) // 2, 20, 150, player2)
 # Grupa sprite'ów
-all_sprites = pygame.sprite.Group(field, player, player2, ball, goal_line1, goal_line2, goal1, goal2)
+all_sprites = pygame.sprite.Group(field, player1, player2, ball, goal_line1, goal_line2, goal1, goal2)
 
 # Główna pętla gry
 clock = pygame.time.Clock()
@@ -212,18 +215,18 @@ while True:
     all_sprites.update()
 
     # Sprawdzenie kolizji piłki z graczem 1
-    if pygame.sprite.collide_rect(player, ball):
+    if pygame.sprite.collide_rect(player1, ball):
         print("Kolizja z piłką (Gracz 1)!")
-        player_center = player.rect.center
+        player_center = player1.rect.center
         ball_vector = pygame.Vector2(ball.rect.center) - player_center
         ball_angle = math.atan2(ball_vector.y, ball_vector.x)
         ball.angle = -ball_angle
 
         # Zmiana kierunku piłki po strzale z lewej nogi
-        if player.shoot_label == "L":
+        if player1.shoot_label == "L":
             ball.angle = math.radians(180)  # Piłka zawsze zmienia kierunek na lewo po strzale z lewej nogi
         # Zmiana kierunku piłki po strzale z prawej nogi
-        elif player.shoot_label == "R":
+        elif player1.shoot_label == "R":
             ball.angle = math.radians(0)  # Piłka zawsze zmienia kierunek na prawo po strzale z prawej nogi
 
     if pygame.sprite.collide_rect(player2, ball):
@@ -241,27 +244,19 @@ while True:
             ball.angle = math.radians(0)  # Piłka zawsze zmienia kierunek na prawo po strzale z prawej nogi
 
 
-    # Sprawdzenie, czy piłka przekroczyła linię bramki gracza 1
-    if pygame.sprite.collide_rect(ball, goal_line1):
-        print("Gol dla Gracza 1!")
-        player.goals_scored += 1
-        ball.rect.center = (WIDTH // 2, HEIGHT // 2)  # Przywrócenie piłki do środka po golu
 
-    # Sprawdzenie, czy piłka przekroczyła linię bramki gracza 2
-    elif pygame.sprite.collide_rect(ball, goal_line2):
-        print("Gol dla Gracza 2!")
-        player2.goals_scored += 1
-        ball.rect.center = (WIDTH // 2, HEIGHT // 2)  # Przywrócenie piłki 
+    # Sprawdzenie kolizji piłki z liniami bramki
+    goal_line1.check_goal(ball)
+    goal_line2.check_goal(ball)
 
-    screen.fill(BLACK)
     all_sprites.draw(screen)
 
     font = pygame.font.Font(None, 48)
-    label1 = font.render(f"PLAYER_1: {player.goals_scored}", True, BLACK)
-    label2 = font.render(f"PLAYER_2: {player2.goals_scored}", True, RED)
+    label1 = font.render(f"PLAYER_1: {player1.goals_scored}", True, RED)
+    label2 = font.render(f"PLAYER_2: {player2.goals_scored}", True, BLACK)
 
-    screen.blit(label1, (30, 10))
-    screen.blit(label2, (WIDTH - label2.get_width() - 30, 10))
+    screen.blit(label2, (30, 10))
+    screen.blit(label1, (WIDTH - label2.get_width() - 30, 10))
 
     pygame.display.flip()
     clock.tick(30)
