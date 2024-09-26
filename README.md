@@ -22,6 +22,6 @@
 <img width="964" alt="tenis3" src="https://github.com/stpf99/pygame_games/blob/1dacc365406f0cdde95242988bd37eaedf67834e/PingPong/2.png">
 
 
-4. bocian
+4. bocian (alpha)
 
 <img width="964" alt="bocian" src="https://github.com/stpf99/pygame_games/blob/22fb5d22a6d02dec8f053c8b64c6ebba2f8c8f71/bocian/bocian%20scrn.png">
