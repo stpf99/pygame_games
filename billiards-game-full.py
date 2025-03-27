@@ -1,4 +1,4 @@
-import pygame
+﻿import pygame
 import sys
 import math
 import random
@@ -33,7 +33,6 @@ BALL_RADIUS = 15
 MAX_VELOCITY = 15
 FRICTION = 0.98
 
-# Pozycje łuz
 pockets = [
     (TABLE_X + CUSHION_WIDTH, TABLE_Y + CUSHION_WIDTH),
     (TABLE_X + TABLE_WIDTH // 2, TABLE_Y + CUSHION_WIDTH // 2),
@@ -54,16 +53,19 @@ class Ball:
         self.vy = 0
         self.active = True
         self.mass = 1.0
+        self.rotation = 0
+        self.angular_velocity = 0
+        self.is_striped = number > 8 and number != 8
 
     def update(self):
         if not self.active:
             return
 
-        # Apply friction
         self.vx *= FRICTION
         self.vy *= FRICTION
+        self.angular_velocity = math.sqrt(self.vx**2 + self.vy**2) * 0.1
+        self.rotation += self.angular_velocity
 
-        # Przyciąganie do dołka
         for pocket_x, pocket_y in pockets:
             distance = math.sqrt((self.x - pocket_x)**2 + (self.y - pocket_y)**2)
             if distance < POCKET_RADIUS * 1.5:
@@ -71,16 +73,13 @@ class Ball:
                 self.vx += (pocket_x - self.x) * pull_strength
                 self.vy += (pocket_y - self.y) * pull_strength
 
-        # Stop if velocity is very small
         if abs(self.vx) < 0.1 and abs(self.vy) < 0.1:
             self.vx = 0
             self.vy = 0
+            self.angular_velocity = 0
 
-        # Update position
         self.x += self.vx
         self.y += self.vy
-
-        # Check collisions with cushions
         self.check_cushion_collision()
 
     def check_cushion_collision(self):
@@ -113,15 +112,26 @@ class Ball:
         if not self.active:
             return
 
-        pygame.gfxdraw.filled_circle(screen, int(self.x), int(self.y), self.radius, self.color)
-        pygame.gfxdraw.aacircle(screen, int(self.x), int(self.y), self.radius, BLACK)
+        ball_surface = pygame.Surface((self.radius * 2, self.radius * 2), pygame.SRCALPHA)
+        if self.is_striped:
+            pygame.gfxdraw.filled_circle(ball_surface, self.radius, self.radius, self.radius, WHITE)
+            pygame.draw.rect(ball_surface, self.color,
+                           (0, self.radius - 5, self.radius * 2, 10))
+        else:
+            pygame.gfxdraw.filled_circle(ball_surface, self.radius, self.radius, self.radius, self.color)
+
+        pygame.gfxdraw.aacircle(ball_surface, self.radius, self.radius, self.radius, BLACK)
 
         if self.number > 0:
-            font = pygame.font.SysFont('Arial', 12)
-            text = font.render(str(self.number), True, WHITE if self.color != YELLOW else BLACK)
-            text_rect = text.get_rect(center=(self.x, self.y))
-            pygame.gfxdraw.filled_circle(screen, int(self.x), int(self.y), 8, WHITE)
-            screen.blit(text, text_rect)
+            font = pygame.font.SysFont('Arial', 16, bold=True)
+            text = font.render(str(self.number), True, BLACK)  # Czarne cyfry
+            text_rect = text.get_rect(center=(self.radius, self.radius))
+            pygame.gfxdraw.filled_circle(ball_surface, self.radius, self.radius, 8, WHITE)
+            ball_surface.blit(text, text_rect)
+
+        rotated_surface = pygame.transform.rotate(ball_surface, math.degrees(self.rotation))
+        rotated_rect = rotated_surface.get_rect(center=(self.x, self.y))
+        screen.blit(rotated_surface, rotated_rect)
 
     def is_moving(self):
         return abs(self.vx) > 0.1 or abs(self.vy) > 0.1
@@ -157,11 +167,18 @@ class Cue:
             self.charging = False
             self.power = 0
 
+    def ai_strike(self, target_x, target_y, power):
+        dx = target_x - self.ball.x
+        dy = target_y - self.ball.y
+        self.angle = math.atan2(dy, dx)
+        self.power = power
+        self.ball.vx = -math.cos(self.angle) * self.power
+        self.ball.vy = -math.sin(self.angle) * self.power
+
     def draw(self, screen):
         if not self.ball.active or self.ball.is_moving():
             return
 
-        # Draw cue stick
         end_x = self.ball.x + math.cos(self.angle) * 50
         end_y = self.ball.y + math.sin(self.angle) * 50
         pygame.draw.line(screen, BLACK, (self.ball.x, self.ball.y), (end_x, end_y), 1)
@@ -179,15 +196,14 @@ class Cue:
                             (cue_end_x, cue_end_y), 2)
 
             power_width = 100
-            pygame.draw.rect(screen, BLACK, (WIDTH // 2 - power_width // 2, HEIGHT - 30, power_width, 10), 1)
-            pygame.draw.rect(screen, RED, (WIDTH // 2 - power_width // 2, HEIGHT - 30,
+            pygame.draw.rect(screen, BLACK, (self.ball.x - power_width // 2, self.ball.y + 50, power_width, 10), 1)
+            pygame.draw.rect(screen, RED, (self.ball.x - power_width // 2, self.ball.y + 50,
                                          power_width * (self.power / self.max_power), 10))
 
     def draw_trajectory(self, screen, balls):
         if not self.charging or not self.ball.active or self.ball.is_moving():
             return
 
-        # Simulate cue ball trajectory
         sim_ball = Ball(self.ball.x, self.ball.y, WHITE)
         sim_ball.vx = -math.cos(self.angle) * self.power
         sim_ball.vy = -math.sin(self.angle) * self.power
@@ -201,7 +217,6 @@ class Cue:
             sim_ball.update()
             points.append((int(sim_ball.x), int(sim_ball.y)))
 
-            # Check for collisions
             for ball in balls:
                 if ball != self.ball and ball.active:
                     dx = ball.x - sim_ball.x
@@ -214,15 +229,12 @@ class Cue:
             if collision_point:
                 break
 
-        # Draw dashed line for cue ball
         for i in range(len(points) - 1):
-            if i % 4 < 2:  # Creates dashed effect
+            if i % 4 < 2:
                 pygame.draw.line(screen, WHITE, points[i], points[i + 1], 2)
 
-        # If there's a collision, simulate the next ball's trajectory
         if collision_point and collision_ball:
             sim_collision = Ball(collision_point[0], collision_point[1], collision_ball.color)
-            # Simplified collision physics for visualization
             angle = math.atan2(collision_ball.y - sim_ball.y, collision_ball.x - sim_ball.x)
             speed = math.sqrt(sim_ball.vx**2 + sim_ball.vy**2) * 0.8
             sim_collision.vx = math.cos(angle) * speed
@@ -233,7 +245,6 @@ class Cue:
                 sim_collision.update()
                 collision_points.append((int(sim_collision.x), int(sim_collision.y)))
 
-            # Draw colored trajectory for collided ball
             for i in range(len(collision_points) - 1):
                 if i % 4 < 2:
                     pygame.draw.line(screen, collision_ball.color, collision_points[i], collision_points[i + 1], 2)
@@ -241,6 +252,9 @@ class Cue:
 class Game:
     def __init__(self):
         self.reset()
+        self.blink_timer = 0
+        self.blink_state = True
+        self.ai_timer = 0
 
     def reset(self):
         self.balls = []
@@ -249,6 +263,8 @@ class Game:
         self.winner = None
         self.player1_potted = 0
         self.player2_potted = 0
+        self.player1_type = None
+        self.player2_type = None
         self.setup_balls()
         self.cue = Cue(self.balls[0])
 
@@ -256,56 +272,168 @@ class Game:
         cue_ball = Ball(TABLE_X + TABLE_WIDTH // 4, TABLE_Y + TABLE_HEIGHT // 2, WHITE)
         self.balls.append(cue_ball)
 
-        colors = [RED, YELLOW, BLUE, PURPLE, ORANGE, GREEN, MAROON, BLACK,
-                 YELLOW, BLUE, PURPLE, ORANGE, GREEN, MAROON, RED]
-
+        colors = [
+            YELLOW, BLUE, RED, PURPLE, ORANGE, GREEN, MAROON, BLACK,
+            YELLOW, BLUE, RED, PURPLE, ORANGE, GREEN, MAROON
+        ]
         start_x = TABLE_X + TABLE_WIDTH * 3 // 4
         start_y = TABLE_Y + TABLE_HEIGHT // 2
-        rows = 5
-        ball_index = 0
+        ball_positions = [
+            (0, 0),
+            (1, -1), (1, 1),
+            (2, -2), (2, 0), (2, 2),
+            (3, -3), (3, -1), (3, 1), (3, 3),
+            (4, -4), (4, -2), (4, 0), (4, 2), (4, 4)
+        ]
 
-        for row in range(rows):
-            for col in range(row + 1):
-                if ball_index < len(colors):
-                    x = start_x + row * BALL_RADIUS * 1.8
-                    y = start_y - (row * BALL_RADIUS) + col * BALL_RADIUS * 2
-                    self.balls.append(Ball(x, y, colors[ball_index], ball_index + 1))
-                    ball_index += 1
+        for i, (row, col) in enumerate(ball_positions):
+            x = start_x + row * BALL_RADIUS * 1.8
+            y = start_y + col * BALL_RADIUS * 2
+            self.balls.append(Ball(x, y, colors[i], i + 1))
 
     def update(self):
         all_stopped = True
-        collision_occurred = False
+        potted_balls = []
+        first_hit = None
+
         for ball in self.balls:
             ball.update()
             if ball.is_moving():
                 all_stopped = False
 
-        if self.check_ball_collisions():
-            collision_occurred = True
+        if self.check_ball_collisions() and not first_hit:
+            for ball in self.balls[1:]:
+                if ball.active and math.sqrt((ball.x - self.balls[0].x)**2 + (ball.y - self.balls[0].y)**2) < BALL_RADIUS * 2:
+                    first_hit = ball.number
 
-        balls_potted = False
         for ball in self.balls:
             if ball.check_pocket_collision():
-                balls_potted = True
-                if ball.number != 0:
-                    if self.player_turn == 1:
-                        self.player1_potted += 1
-                    else:
-                        self.player2_potted += 1
-                if ball.number == 0:  # Reset cue ball if potted
-                    ball.active = True
-                    ball.x = TABLE_X + TABLE_WIDTH // 4
-                    ball.y = TABLE_Y + TABLE_HEIGHT // 2
-                    ball.vx = 0
-                    ball.vy = 0
+                potted_balls.append(ball)
 
-        if all_stopped and not balls_potted and not collision_occurred:
-            self.player_turn = 3 - self.player_turn
+        if all_stopped:
+            if potted_balls:
+                valid_hit = True
+                if self.player1_type is None and self.player2_type is None:
+                    if any(b.number <= 7 for b in potted_balls if b.number != 0):
+                        self.player1_type = "solid"
+                        self.player2_type = "striped"
+                    elif any(b.number > 8 for b in potted_balls if b.number != 0):
+                        self.player1_type = "striped"
+                        self.player2_type = "solid"
 
-        balls_left = sum(1 for ball in self.balls if ball.active and ball.number != 0)
-        if balls_left == 0:
-            self.game_over = True
-            self.winner = self.player_turn
+                current_type = self.player1_type if self.player_turn == 1 else self.player2_type
+                if current_type == "solid" and any(b.number > 8 for b in potted_balls):
+                    valid_hit = False
+                elif current_type == "striped" and any(b.number <= 7 for b in potted_balls):
+                    valid_hit = False
+
+                for ball in potted_balls:
+                    if ball.number != 0:
+                        if self.player_turn == 1:
+                            self.player1_potted += 1
+                        else:
+                            self.player2_potted += 1
+                    if ball.number == 8:
+                        remaining = sum(1 for b in self.balls if b.active and b.number != 0 and
+                                      ((b.number <= 7 and current_type == "solid") or
+                                       (b.number > 8 and current_type == "striped")))
+                        if remaining > 0 or not valid_hit:
+                            self.game_over = True
+                            self.winner = 3 - self.player_turn
+                        else:
+                            self.game_over = True
+                            self.winner = self.player_turn
+                    elif ball.number == 0:
+                        ball.active = True
+                        ball.x = TABLE_X + TABLE_WIDTH // 4
+                        ball.y = TABLE_Y + TABLE_HEIGHT // 2
+                        ball.vx = 0
+                        ball.vy = 0
+                        valid_hit = False
+
+                if not valid_hit or (first_hit and
+                                  ((current_type == "solid" and first_hit > 8) or
+                                   (current_type == "striped" and first_hit <= 7))):
+                    self.player_turn = 3 - self.player_turn
+
+            else:
+                self.player_turn = 3 - self.player_turn
+
+        self.blink_timer += 1
+        if self.blink_timer >= 30:
+            self.blink_state = not self.blink_state
+            self.blink_timer = 0
+
+        if self.player_turn == 2 and all_stopped and not self.game_over:
+            self.ai_timer += 1
+            if self.ai_timer >= 60:
+                self.ai_play()
+                self.ai_timer = 0
+
+    def ai_play(self):
+        cue_ball = self.balls[0]
+        best_target = None
+        best_score = -float('inf')
+        current_type = self.player2_type
+
+        # Ocena wszystkich bil i kieszeni
+        for ball in self.balls[1:]:
+            if not ball.active or (ball.number == 8 and self.get_remaining_balls(2) > 0):
+                continue
+            if (current_type == "solid" and ball.number <= 7) or \
+               (current_type == "striped" and ball.number > 8) or \
+               (ball.number == 8 and self.get_remaining_balls(2) == 0):
+                for pocket in pockets:
+                    # Obliczanie trajektorii i punktacji
+                    dx_ball = ball.x - cue_ball.x
+                    dy_ball = ball.y - cue_ball.y
+                    dist_to_ball = math.sqrt(dx_ball**2 + dy_ball**2)
+                    angle_to_ball = math.atan2(dy_ball, dx_ball)
+
+                    dx_pocket = pocket[0] - ball.x
+                    dy_pocket = pocket[1] - ball.y
+                    dist_to_pocket = math.sqrt(dx_pocket**2 + dy_pocket**2)
+                    angle_to_pocket = math.atan2(dy_pocket, dx_pocket)
+
+                    # Punktacja: bliskość kieszeni i wyrównanie kątów
+                    alignment = abs(angle_to_ball - angle_to_pocket)
+                    if alignment > math.pi:
+                        alignment = 2 * math.pi - alignment
+                    score = 1000 / (dist_to_ball + dist_to_pocket) - alignment * 10
+
+                    # Sprawdzenie, czy pierwsza bila jest poprawna
+                    first_hit = self.simulate_first_hit(cue_ball.x, cue_ball.y, angle_to_ball, 10)
+                    if first_hit and ((current_type == "solid" and first_hit > 8) or
+                                    (current_type == "striped" and first_hit <= 7)):
+                        score -= 1000  # Kara za faul
+
+                    if score > best_score:
+                        best_score = score
+                        best_target = (ball.x, ball.y, min(15, dist_to_ball / 50))  # Siła proporcjonalna do odległości
+
+        if best_target:
+            self.cue.ai_strike(best_target[0], best_target[1], best_target[2])
+
+    def simulate_first_hit(self, x, y, angle, power):
+        sim_ball = Ball(x, y, WHITE)
+        sim_ball.vx = -math.cos(angle) * power
+        sim_ball.vy = -math.sin(angle) * power
+        for _ in range(50):
+            sim_ball.update()
+            for ball in self.balls[1:]:
+                if ball.active:
+                    dx = ball.x - sim_ball.x
+                    dy = ball.y - sim_ball.y
+                    if math.sqrt(dx**2 + dy**2) < BALL_RADIUS * 2:
+                        return ball.number
+        return None
+
+    def get_remaining_balls(self, player):
+        player_type = self.player1_type if player == 1 else self.player2_type
+        if player_type == "solid":
+            return sum(1 for b in self.balls if b.active and b.number <= 7 and b.number != 0)
+        else:
+            return sum(1 for b in self.balls if b.active and b.number > 8)
 
     def check_ball_collisions(self):
         collision_happened = False
@@ -349,17 +477,35 @@ class Game:
         for ball in self.balls:
             ball.draw(screen)
         self.cue.draw(screen)
-        self.cue.draw_trajectory(screen, self.balls)
+        if self.player_turn == 1:
+            self.cue.draw_trajectory(screen, self.balls)
+
         font = pygame.font.SysFont('Arial', 30)
-        turn_text = f"Gracz {self.player_turn}"
-        screen.blit(font.render(turn_text, True, BLACK), (20, 20))
-        score1_text = f"Gracz 1: {self.player1_potted}"
-        score2_text = f"Gracz 2: {self.player2_potted}"
-        screen.blit(font.render(score1_text, True, BLACK), (20, 60))
-        screen.blit(font.render(score2_text, True, BLACK), (20, 90))
+        remaining1 = self.get_remaining_balls(1)
+        if self.player_turn == 1 and self.blink_state:
+            p1_text = font.render(f"Gracz 1: {self.player1_potted}/{7-remaining1} Pozostało: {remaining1}", True, RED)
+        else:
+            p1_text = font.render(f"Gracz 1: {self.player1_potted}/{7-remaining1} Pozostało: {remaining1}", True, BLACK)
+        screen.blit(p1_text, (20, 20))
+        if self.player1_type:
+            type_text = font.render("Pełne" if self.player1_type == "solid" else "Połówki", True, BLACK)
+            screen.blit(type_text, (20, 60))
+
+        remaining2 = self.get_remaining_balls(2)
+        if self.player_turn == 2 and self.blink_state:
+            p2_text = font.render(f"AI: {self.player2_potted}/{7-remaining2} Pozostało: {remaining2}", True, RED)
+        else:
+            p2_text = font.render(f"AI: {self.player2_potted}/{7-remaining2} Pozostało: {remaining2}", True, BLACK)
+        p2_rect = p2_text.get_rect(topright=(WIDTH - 20, 20))
+        screen.blit(p2_text, p2_rect)
+        if self.player2_type:
+            type_text = font.render("Pełne" if self.player2_type == "solid" else "Połówki", True, BLACK)
+            type_rect = type_text.get_rect(topright=(WIDTH - 20, 60))
+            screen.blit(type_text, type_rect)
+
         if self.game_over:
             font = pygame.font.SysFont('Arial', 50)
-            game_over_text = f"Gracz {self.winner} wygrywa!"
+            game_over_text = f"{'Gracz 1' if self.winner == 1 else 'AI'} wygrywa!"
             text_surface = font.render(game_over_text, True, RED)
             text_rect = text_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2))
             pygame.draw.rect(screen, WHITE, (text_rect.x - 20, text_rect.y - 20,
@@ -401,7 +547,7 @@ def main():
     pygame.mixer.init()
     global screen, clock
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
-    pygame.display.set_caption("Bilard")
+    pygame.display.set_caption("Bilard z AI")
     clock = pygame.time.Clock()
 
     global HIT_SOUND, POCKET_SOUND
@@ -417,17 +563,17 @@ def main():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-            elif event.type == pygame.MOUSEBUTTONDOWN:
+            elif event.type == pygame.MOUSEBUTTONDOWN and game.player_turn == 1:
                 if event.button == 1:
                     game.cue.start_charging()
-            elif event.type == pygame.MOUSEBUTTONUP:
+            elif event.type == pygame.MOUSEBUTTONUP and game.player_turn == 1:
                 if event.button == 1:
                     game.cue.strike()
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_r and game.game_over:
                     game.reset()
 
-        if pygame.mouse.get_pressed()[0]:
+        if pygame.mouse.get_pressed()[0] and game.player_turn == 1:
             game.cue.continue_charging()
 
         game.cue.update(mouse_pos)
