@@ -33,3 +33,7 @@
 <img width="964" alt="billard" src="https://github.com/stpf99/pygame_games/blob/d94c3e30fb45f3e7abd2a3dac7c3afa48f2f8d78/pybillard.png">
 
 
+
+4. molociki21
+
+<img width="964" alt="billard" src="https://github.com/stpf99/pygame_games/blob/ee0fae15c91598239343e92e54b81442ab3d2aa0/molociki21py.jpg">
